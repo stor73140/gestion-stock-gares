@@ -2,98 +2,133 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Gestion de stock – Gares</title>
+<title>Gestion Stock Gares</title>
 <style>
-body { font-family: Arial; background:#f4f4f4; padding:20px }
-h2 { margin-top:30px }
-form { background:white; padding:15px; margin-bottom:20px; border-radius:5px }
-input, select, button { margin:5px 0; padding:8px; width:100% }
-table { width:100%; border-collapse:collapse; background:white }
-th, td { border:1px solid #ccc; padding:8px; text-align:left }
-th { background:#eee }
+body{font-family:Arial;background:#f4f4f4;padding:20px}
+h2{margin-top:30px}
+form, .box{background:#fff;padding:15px;border-radius:5px;margin-bottom:20px}
+input,select,button{padding:8px;margin:5px 0;width:100%}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{border:1px solid #ccc;padding:8px}
+th{background:#eee}
+.hidden{display:none}
+.actions button{margin-right:5px}
 </style>
 </head>
 
 <body>
 
-<h1>Gestion des pièces – Gares de remontées mécaniques</h1>
+<div id="pinBox" class="box">
+  <h2>🔐 Code PIN</h2>
+  <input type="password" id="pinInput" placeholder="Code à 4 chiffres">
+  <button onclick="checkPin()">Entrer</button>
+</div>
+
+<div id="app" class="hidden">
+
+<h1>Gestion des pièces – Gares</h1>
 
 <h2>➕ Ajouter une gare</h2>
-<form id="gareForm">
-  <input type="text" id="gareNom" placeholder="Nom de la gare" required>
-  <button type="submit">Ajouter la gare</button>
+<form onsubmit="addGare(event)">
+  <input id="gareNom" placeholder="Nom de la gare" required>
+  <button>Ajouter</button>
 </form>
 
-<h2>➕ Ajouter une pièce</h2>
-<form id="pieceForm">
-  <input type="text" id="pieceNom" placeholder="Nom de la pièce" required>
-  <input type="number" id="pieceQte" placeholder="Quantité" required>
-  <select id="gareSelect" required></select>
-  <button type="submit">Ajouter la pièce</button>
+<h2>➕ Ajouter / Modifier une pièce</h2>
+<form onsubmit="addPiece(event)">
+  <input id="pieceNom" placeholder="Nom de la pièce" required>
+  <input id="pieceQte" type="number" placeholder="Quantité" required>
+  <select id="gareSelect"></select>
+  <input type="hidden" id="editIndex">
+  <button>Enregistrer</button>
 </form>
 
-<h2>📦 Stock par gare</h2>
+<button onclick="exportCSV()">📤 Export Excel</button>
+
+<h2>📦 Stock</h2>
 <table>
-  <thead>
-    <tr>
-      <th>Gare</th>
-      <th>Pièce</th>
-      <th>Quantité</th>
-    </tr>
-  </thead>
-  <tbody id="stockTable"></tbody>
+<thead>
+<tr><th>Gare</th><th>Pièce</th><th>Qté</th><th>Actions</th></tr>
+</thead>
+<tbody id="table"></tbody>
 </table>
 
+</div>
+
 <script>
-let data = JSON.parse(localStorage.getItem("stockData")) || { gares: [], pieces: [] };
+const PIN = "1234";
+let data = JSON.parse(localStorage.getItem("stock")) || {gares:[],pieces:[]};
 
-function save() {
-  localStorage.setItem("stockData", JSON.stringify(data));
+function save(){localStorage.setItem("stock",JSON.stringify(data))}
+function checkPin(){
+  if(pinInput.value===PIN){
+    pinBox.classList.add("hidden");
+    app.classList.remove("hidden");
+    refresh();
+  } else alert("Code incorrect");
 }
 
-function refresh() {
-  const select = document.getElementById("gareSelect");
-  const table = document.getElementById("stockTable");
-  select.innerHTML = "";
-  table.innerHTML = "";
-
-  data.gares.forEach(g => {
-    const opt = document.createElement("option");
-    opt.value = g;
-    opt.textContent = g;
-    select.appendChild(opt);
-  });
-
-  data.pieces.forEach(p => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${p.gare}</td><td>${p.nom}</td><td>${p.qte}</td>`;
-    table.appendChild(tr);
+function refresh(){
+  gareSelect.innerHTML="";
+  table.innerHTML="";
+  data.gares.forEach(g=>gareSelect.innerHTML+=`<option>${g}</option>`);
+  data.pieces.forEach((p,i)=>{
+    table.innerHTML+=`
+    <tr>
+      <td>${p.gare}</td>
+      <td>${p.nom}</td>
+      <td>${p.qte}</td>
+      <td class="actions">
+        <button onclick="edit(${i})">✏️</button>
+        <button onclick="del(${i})">🗑️</button>
+      </td>
+    </tr>`;
   });
 }
 
-document.getElementById("gareForm").onsubmit = e => {
+function addGare(e){
   e.preventDefault();
-  const nom = gareNom.value.trim();
-  if (!data.gares.includes(nom)) {
-    data.gares.push(nom);
+  if(!data.gares.includes(gareNom.value)){
+    data.gares.push(gareNom.value);
     save(); refresh();
   }
-  gareNom.value = "";
-};
+  gareNom.value="";
+}
 
-document.getElementById("pieceForm").onsubmit = e => {
+function addPiece(e){
   e.preventDefault();
-  data.pieces.push({
-    nom: pieceNom.value,
-    qte: pieceQte.value,
-    gare: gareSelect.value
-  });
+  const i = editIndex.value;
+  const obj={nom:pieceNom.value,qte:pieceQte.value, gare:gareSelect.value};
+  if(i==="") data.pieces.push(obj);
+  else data.pieces[i]=obj;
+  editIndex.value="";
+  pieceNom.value=""; pieceQte.value="";
   save(); refresh();
-  pieceNom.value = "";
-  pieceQte.value = "";
-};
+}
 
-refresh();
+function edit(i){
+  const p=data.pieces[i];
+  pieceNom.value=p.nom;
+  pieceQte.value=p.qte;
+  gareSelect.value=p.gare;
+  editIndex.value=i;
+}
+
+function del(i){
+  if(confirm("Supprimer cette pièce ?")){
+    data.pieces.splice(i,1);
+    save(); refresh();
+  }
+}
+
+function exportCSV(){
+  let csv="Gare,Pièce,Quantité\n";
+  data.pieces.forEach(p=>csv+=`${p.gare},${p.nom},${p.qte}\n`);
+  const a=document.createElement("a");
+  a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+  a.download="stock.csv";
+  a.click();
+}
 </script>
 
 </body>
