@@ -5,6 +5,7 @@
 <title>Gestion Stock Gares</title>
 <style>
 body{font-family:Arial;background:#f4f4f4;padding:20px}
+h1{text-align:center}
 h2{margin-top:30px}
 form, .box{background:#fff;padding:15px;border-radius:5px;margin-bottom:20px}
 input,select,button{padding:8px;margin:5px 0;width:100%}
@@ -13,6 +14,7 @@ th,td{border:1px solid #ccc;padding:8px}
 th{background:#eee}
 .hidden{display:none}
 .actions button{margin-right:5px}
+button{cursor:pointer}
 </style>
 </head>
 
@@ -35,6 +37,12 @@ th{background:#eee}
 </form>
 
 <h2>➕ Ajouter / Modifier une pièce</h2>
+
+<label>Pièce existante :</label>
+<select id="pieceSelect" onchange="selectExistingPiece()">
+  <option value="">-- Nouvelle pièce --</option>
+</select>
+
 <form onsubmit="addPiece(event)">
   <input id="pieceNom" placeholder="Nom de la pièce" required>
   <input id="pieceQte" type="number" placeholder="Quantité" required>
@@ -42,6 +50,16 @@ th{background:#eee}
   <input type="hidden" id="editIndex">
   <button>Enregistrer</button>
 </form>
+
+<h2>🔎 Recherche par pièce</h2>
+<input id="searchInput" placeholder="Nom de la pièce">
+<button onclick="searchPiece()">Rechercher</button>
+<div id="searchResult" class="box hidden"></div>
+
+<h2>🚉 Voir par gare</h2>
+<select id="gareViewSelect"></select>
+<button onclick="viewGare()">Afficher</button>
+<div id="gareViewResult" class="box hidden"></div>
 
 <button onclick="exportCSV()">📤 Export Excel</button>
 
@@ -59,7 +77,10 @@ th{background:#eee}
 const PIN = "1234";
 let data = JSON.parse(localStorage.getItem("stock")) || {gares:[],pieces:[]};
 
-function save(){localStorage.setItem("stock",JSON.stringify(data))}
+function save(){
+  localStorage.setItem("stock",JSON.stringify(data));
+}
+
 function checkPin(){
   if(pinInput.value===PIN){
     pinBox.classList.add("hidden");
@@ -70,8 +91,20 @@ function checkPin(){
 
 function refresh(){
   gareSelect.innerHTML="";
+  gareViewSelect.innerHTML="";
+  pieceSelect.innerHTML='<option value="">-- Nouvelle pièce --</option>';
   table.innerHTML="";
-  data.gares.forEach(g=>gareSelect.innerHTML+=`<option>${g}</option>`);
+
+  data.gares.forEach(g=>{
+    gareSelect.innerHTML+=`<option>${g}</option>`;
+    gareViewSelect.innerHTML+=`<option>${g}</option>`;
+  });
+
+  let uniquePieces=[...new Set(data.pieces.map(p=>p.nom))];
+  uniquePieces.forEach(p=>{
+    pieceSelect.innerHTML+=`<option>${p}</option>`;
+  });
+
   data.pieces.forEach((p,i)=>{
     table.innerHTML+=`
     <tr>
@@ -90,20 +123,38 @@ function addGare(e){
   e.preventDefault();
   if(!data.gares.includes(gareNom.value)){
     data.gares.push(gareNom.value);
-    save(); refresh();
+    save(); 
+    refresh();
   }
   gareNom.value="";
+}
+
+function selectExistingPiece(){
+  if(pieceSelect.value!==""){
+    pieceNom.value=pieceSelect.value;
+  }
 }
 
 function addPiece(e){
   e.preventDefault();
   const i = editIndex.value;
-  const obj={nom:pieceNom.value,qte:pieceQte.value, gare:gareSelect.value};
-  if(i==="") data.pieces.push(obj);
-  else data.pieces[i]=obj;
+  const obj={
+    nom:pieceNom.value,
+    qte:Number(pieceQte.value),
+    gare:gareSelect.value
+  };
+
+  if(i===""){
+    data.pieces.push(obj);
+  } else {
+    data.pieces[i]=obj;
+  }
+
   editIndex.value="";
-  pieceNom.value=""; pieceQte.value="";
-  save(); refresh();
+  pieceNom.value="";
+  pieceQte.value="";
+  save(); 
+  refresh();
 }
 
 function edit(i){
@@ -117,13 +168,53 @@ function edit(i){
 function del(i){
   if(confirm("Supprimer cette pièce ?")){
     data.pieces.splice(i,1);
-    save(); refresh();
+    save(); 
+    refresh();
   }
+}
+
+function searchPiece(){
+  const name=searchInput.value.toLowerCase();
+  let results=data.pieces.filter(p=>p.nom.toLowerCase()===name);
+
+  if(results.length===0){
+    searchResult.innerHTML="Aucune pièce trouvée";
+  } else {
+    let total=results.reduce((sum,p)=>sum+p.qte,0);
+    let locations=results.map(p=>`${p.gare} (${p.qte})`).join("<br>");
+
+    searchResult.innerHTML=`
+      <strong>${name}</strong><br>
+      Quantité totale: ${total}<br><br>
+      Localisation:<br>${locations}
+    `;
+  }
+
+  searchResult.classList.remove("hidden");
+}
+
+function viewGare(){
+  const g=gareViewSelect.value;
+  let results=data.pieces.filter(p=>p.gare===g);
+
+  if(results.length===0){
+    gareViewResult.innerHTML="Aucune pièce dans cette gare";
+  } else {
+    let html="<strong>"+g+"</strong><br><br>";
+    results.forEach(p=>{
+      html+=`${p.nom} : ${p.qte}<br>`;
+    });
+    gareViewResult.innerHTML=html;
+  }
+
+  gareViewResult.classList.remove("hidden");
 }
 
 function exportCSV(){
   let csv="Gare,Pièce,Quantité\n";
-  data.pieces.forEach(p=>csv+=`${p.gare},${p.nom},${p.qte}\n`);
+  data.pieces.forEach(p=>{
+    csv+=`${p.gare},${p.nom},${p.qte}\n`;
+  });
   const a=document.createElement("a");
   a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
   a.download="stock.csv";
