@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Gestion de stock – Gares</title>
+<style>
+body { font-family: Arial; background:#f4f4f4; padding:20px }
+h2 { margin-top:30px }
+form { background:white; padding:15px; margin-bottom:20px; border-radius:5px }
+input, select, button { margin:5px 0; padding:8px; width:100% }
+table { width:100%; border-collapse:collapse; background:white }
+th, td { border:1px solid #ccc; padding:8px; text-align:left }
+th { background:#eee }
+</style>
+</head>
+
+<body>
+
+<h1>Gestion des pièces – Gares de remontées mécaniques</h1>
+
+<h2>➕ Ajouter une gare</h2>
+<form id="gareForm">
+  <input type="text" id="gareNom" placeholder="Nom de la gare" required>
+  <button type="submit">Ajouter la gare</button>
+</form>
+
+<h2>➕ Ajouter une pièce</h2>
+<form id="pieceForm">
+  <input type="text" id="pieceNom" placeholder="Nom de la pièce" required>
+  <input type="number" id="pieceQte" placeholder="Quantité" required>
+  <select id="gareSelect" required></select>
+  <button type="submit">Ajouter la pièce</button>
+</form>
+
+<h2>📦 Stock par gare</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Gare</th>
+      <th>Pièce</th>
+      <th>Quantité</th>
+    </tr>
+  </thead>
+  <tbody id="stockTable"></tbody>
+</table>
+
+<script>
+let data = JSON.parse(localStorage.getItem("stockData")) || { gares: [], pieces: [] };
+
+function save() {
+  localStorage.setItem("stockData", JSON.stringify(data));
+}
+
+function refresh() {
+  const select = document.getElementById("gareSelect");
+  const table = document.getElementById("stockTable");
+  select.innerHTML = "";
+  table.innerHTML = "";
+
+  data.gares.forEach(g => {
+    const opt = document.createElement("option");
+    opt.value = g;
+    opt.textContent = g;
+    select.appendChild(opt);
+  });
+
+  data.pieces.forEach(p => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${p.gare}</td><td>${p.nom}</td><td>${p.qte}</td>`;
+    table.appendChild(tr);
+  });
+}
+
+document.getElementById("gareForm").onsubmit = e => {
+  e.preventDefault();
+  const nom = gareNom.value.trim();
+  if (!data.gares.includes(nom)) {
+    data.gares.push(nom);
+    save(); refresh();
+  }
+  gareNom.value = "";
+};
+
+document.getElementById("pieceForm").onsubmit = e => {
+  e.preventDefault();
+  data.pieces.push({
+    nom: pieceNom.value,
+    qte: pieceQte.value,
+    gare: gareSelect.value
+  });
+  save(); refresh();
+  pieceNom.value = "";
+  pieceQte.value = "";
+};
+
+refresh();
+</script>
+
+</body>
+</html>
